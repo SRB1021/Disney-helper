@@ -1,0 +1,15 @@
+{
+  "name": "disney-helper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Walt Disney World live wait times, Lightning Lane tracking, predictions and a day planner",
+  "main": "server.js",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/predict.test.js test/planner.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

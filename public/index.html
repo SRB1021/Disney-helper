@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disney Helper</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>🏰 Disney Helper</h1>
+  <p class="sub">Live wait times, Lightning Lane, and a plan for your day at Walt Disney World</p>
+</header>
+<nav id="parks" aria-label="Parks"></nav>
+<nav class="tabs">
+  <button data-view="live" class="on">Live waits</button>
+  <button data-view="plan">Day planner</button>
+</nav>
+<main>
+  <section id="live">
+    <div class="controls">
+      <label>Sort
+        <select id="sort">
+          <option value="wait-asc">Shortest wait</option>
+          <option value="wait-desc">Longest wait</option>
+          <option value="name">Name</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="openOnly" checked> Open rides only</label>
+      <span id="updated" class="muted"></span>
+    </div>
+    <div id="error" class="error" hidden></div>
+    <ul id="rides" class="rides"></ul>
+  </section>
+  <section id="plan" hidden>
+    <p>Tick your must-do rides, then build a plan.</p>
+    <div class="controls">
+      <label>Start <input type="time" id="startTime" value="09:00"></label>
+      <label>End <input type="time" id="endTime" value="21:00"></label>
+      <label>Walk (min) <input type="number" id="walk" value="10" min="0" max="30"></label>
+    </div>
+    <ul id="picks" class="rides"></ul>
+    <button id="build" class="primary">Build my plan</button>
+    <ol id="timeline" class="timeline"></ol>
+  </section>
+</main>
+<dialog id="detail">
+  <form method="dialog"><button class="close" aria-label="Close">✕</button></form>
+  <h2 id="dName"></h2>
+  <p id="dInfo" class="muted"></p>
+  <canvas id="chart" height="200"></canvas>
+</dialog>
+<footer>Data from <a href="https://themeparks.wiki">ThemeParks.wiki</a>. Not affiliated with Disney.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

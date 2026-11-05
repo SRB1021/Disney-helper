@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: disney-helper
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      # Free plan has no persistent disk, so history resets on redeploy.
+      # On a paid plan, add a disk mounted at /var/data and set DB_PATH to /var/data/history.db
+      - key: DB_PATH
+        value: ./data/history.db
