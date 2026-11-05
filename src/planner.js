@@ -4,6 +4,8 @@
 // rides: [{ id, name, currentWait, predicted: {hour: minutes}, llStart?: minutesSinceMidnight,
 //           durationMin? }]
 // opts:  { startMin, endMin, walkMin }   (minutes since midnight, park-local)
+const MAX_IDLE_FOR_LL = 20; // minutes we'll wait around for a Lightning Lane window
+
 function waitAt(ride, min) {
   const hour = Math.floor(min / 60) % 24;
   const p = ride.predicted?.[hour];
@@ -28,8 +30,10 @@ function planDay(rides, { startMin = 540, endMin = 1260, walkMin = 10 } = {}) {
       const start = ll ? r.llStart : arrive;
       const wait = ll ? 5 : waitAt(r, arrive);
       const end = start + wait + (r.durationMin ?? 5);
-      // Prefer a LL ride whose window is about to open; else the lowest total cost.
-      const cost = ll ? (start - t) * 0.5 + wait : end - t;
+      // Don't sit idle for a far-off LL window: defer that ride (unless it's all that's left).
+      const idle = ll ? start - arrive : 0;
+      const deferred = idle > MAX_IDLE_FOR_LL && remaining.length > 1;
+      const cost = deferred ? Infinity : ll ? idle * 0.5 + wait : end - t;
       if (!pick || cost < pick.cost) pick = { ride: r, ll, arrive, start, wait, end, cost };
     }
     remaining.splice(remaining.indexOf(pick.ride), 1);

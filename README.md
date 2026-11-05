@@ -19,5 +19,4 @@ history use a paid plan with a disk at `/var/data` and set `DB_PATH=/var/data/hi
 Render deploys the branch set in the service (currently `main`).
 
 ## Status
-The ThemeParks.wiki client (`src/themeparks.js`) follows the documented response shape but has
-not yet been checked against live data.
+The ThemeParks.wiki client (`src/themeparks.js`) has been checked against live data (parks, waits, Lightning Lane).

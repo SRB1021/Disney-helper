@@ -33,3 +33,14 @@ test('skips rides that would run past park close', () => {
   assert.deepEqual(plan.skipped, ['a']);
   assert.equal(plan.steps.length, 0);
 });
+
+test('does not idle for a far-off Lightning Lane window while other rides are available', () => {
+  const rides = [
+    { id: 'll', name: 'LL', currentWait: 80, llStart: 900 },
+    { id: 'b', name: 'B', currentWait: 10 },
+  ];
+  const plan = planDay(rides, { startMin: 540, walkMin: 10 });
+  assert.equal(plan.steps[0].rideId, 'b');
+  assert.equal(plan.steps[1].rideId, 'll');
+  assert.equal(plan.steps[1].startMin, 900);
+});
