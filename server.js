@@ -10,6 +10,9 @@ function createApp({ db, api }) {
   const app = express();
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
+  // Serve front-end libraries ourselves (no third-party CDN dependency).
+  app.use('/vendor/leaflet', express.static(path.join(__dirname, 'node_modules/leaflet/dist')));
+  app.use('/vendor/chartjs', express.static(path.join(__dirname, 'node_modules/chart.js/dist')));
 
   const wrap = (fn) => (req, res) => fn(req, res).catch((e) => res.status(502).json({ error: e.message }));
 
@@ -26,6 +29,11 @@ function createApp({ db, api }) {
       r.trend = past && past.standby != null && r.standby != null ? r.standby - past.standby : null;
     }
     res.json(rides);
+  }));
+
+  app.get('/api/parks/:id/center', wrap(async (req, res) => {
+    const { center } = await api.getLocations(req.params.id);
+    res.json(center);
   }));
 
   app.get('/api/rides/:id/history', (req, res) => {

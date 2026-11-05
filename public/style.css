@@ -23,3 +23,16 @@ nav button.on, .tabs button.on { background:var(--accent); color:#fff; }
 dialog { border:0; border-radius:16px; width:min(92vw,640px); background:var(--card); color:var(--ink); }
 .close { float:right; border:0; background:none; color:var(--ink); font-size:1.2rem; cursor:pointer; }
 footer { padding:24px 16px; color:var(--muted); font-size:.85rem; }
+
+.ride.unavailable { background:#d9d9e0; color:#7a7a88; }
+.ride.unavailable .badge { background:#9a9aa8; }
+.ride.unavailable .ll { color:#7a7a88; }
+@media (prefers-color-scheme: dark) { .ride.unavailable { background:#34344a; color:#8d8da6; } .ride.unavailable .badge { background:#55556e; } }
+#mapEl { height:420px; border-radius:12px; overflow:hidden; background:var(--card); }
+.rec { background:var(--card); border-left:6px solid var(--accent); padding:12px; border-radius:10px; margin:8px 0; }
+.primary.small { margin-top:0; padding:8px 14px; font-size:.9rem; }
+.legend { margin-top:8px; }
+.pin { border-radius:50%; border:2px solid #fff; box-shadow:0 0 3px rgba(0,0,0,.5); color:#fff; font:700 11px/22px system-ui; text-align:center; width:26px; height:26px; line-height:22px; }
+.pin.good { background:var(--good); } .pin.mid { background:var(--mid); } .pin.bad { background:var(--bad); } .pin.off { background:#9a9aa8; }
+.pin.star { background:var(--accent); width:34px; height:34px; line-height:30px; font-size:16px; }
+.you { width:16px; height:16px; background:#1f6fff; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 2px #1f6fff55; }

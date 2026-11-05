@@ -4,12 +4,16 @@
   "private": true,
   "description": "Walt Disney World live wait times, Lightning Lane tracking, predictions and a day planner",
   "main": "server.js",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node server.js",
     "test": "node --test test/predict.test.js test/planner.test.js"
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "chart.js": "^4.4.1",
+    "express": "^4.21.2",
+    "leaflet": "^1.9.4"
   }
 }

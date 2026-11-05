@@ -41,9 +41,28 @@ function normalize(e) {
   };
 }
 
+// Ride coordinates and park center, cached for a day (they rarely change).
+async function getLocations(parkId) {
+  const day = 24 * 3600_000;
+  const [park, kids] = await Promise.all([getJson(`/entity/${parkId}`, day), getJson(`/entity/${parkId}/children`, day)]);
+  const rides = {};
+  for (const c of kids.children || []) {
+    if (c.entityType === 'ATTRACTION' && c.location?.latitude != null) {
+      rides[c.id] = { lat: c.location.latitude, lng: c.location.longitude };
+    }
+  }
+  const center = park.location?.latitude != null ? { lat: park.location.latitude, lng: park.location.longitude } : null;
+  return { rides, center };
+}
+
 async function getLive(parkId) {
   const data = await getJson(`/entity/${parkId}/live`);
-  return (data.liveData || []).filter((e) => e.entityType === 'ATTRACTION').map(normalize);
+  const rides = (data.liveData || []).filter((e) => e.entityType === 'ATTRACTION').map(normalize);
+  try {
+    const { rides: loc } = await getLocations(parkId);
+    for (const r of rides) if (loc[r.id]) Object.assign(r, loc[r.id]);
+  } catch { /* map data is optional; list still works */ }
+  return rides;
 }
 
 async function getSchedule(parkId) {
@@ -51,4 +70,4 @@ async function getSchedule(parkId) {
   return data.schedule || [];
 }
 
-module.exports = { getParks, getLive, getSchedule, normalize };
+module.exports = { getParks, getLive, getLocations, getSchedule, normalize };
