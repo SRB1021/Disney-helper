@@ -6,7 +6,7 @@ const { startPoller, localParts } = require('./src/poller');
 const { typicalByHour, bestHour, crowdFrom } = require('./src/predict');
 const weather = require('./src/weather');
 const { rideDuration } = require('./src/durations');
-const { planDay } = require('./src/planner');
+const { planDay, distM, pathLength, DEFAULT_PACE } = require('./src/planner');
 
 function createApp({ db, api, weatherApi = weather }) {
   const app = express();
@@ -73,7 +73,7 @@ function createApp({ db, api, weatherApi = weather }) {
   });
 
   app.post('/api/plan', wrap(async (req, res) => {
-    const { parkId, mustDos = [], startMin, endMin, walkMin, events = [] } = req.body || {};
+    const { parkId, mustDos = [], startMin, endMin, walkMin, events = [], from, pace } = req.body || {};
     const cleanEvents = (Array.isArray(events) ? events : []).filter((e) => e && Number.isFinite(e.startMin) && Number.isFinite(e.durMin) && e.durMin > 0)
       .slice(0, 20).map((e) => ({ name: String(e.name || 'Event').slice(0, 80), startMin: e.startMin, durMin: e.durMin }));
     if (!parkId || !Array.isArray(mustDos) || !mustDos.length) {
@@ -84,12 +84,25 @@ function createApp({ db, api, weatherApi = weather }) {
       const { hours } = typicalByHour(db.samplesByHour(r.id), localParts(Date.now()).dow);
       const ll = r.llSingle?.state === 'AVAILABLE' ? r.llSingle : r.llMulti?.state === 'AVAILABLE' ? r.llMulti : null;
       return {
-        id: r.id, name: r.name, currentWait: r.standby, durationMin: rideDuration(r.name),
+        id: r.id, name: r.name, currentWait: r.standby, durationMin: rideDuration(r.name), lat: r.lat, lng: r.lng,
         predicted: Object.fromEntries(Object.entries(hours).map(([h, v]) => [h, v.median])),
         llStart: ll?.start ? isoToLocalMinutes(ll.start) : undefined,
       };
     });
-    res.json(planDay(rides, { startMin, endMin, walkMin, events: cleanEvents }));
+    // Start point: the user's location if they're actually at the park, else the middle of the park.
+    const { center } = await api.getLocations(parkId).catch(() => ({ center: null }));
+    const here = from && Number.isFinite(from.lat) && Number.isFinite(from.lng) ? { lat: from.lat, lng: from.lng } : null;
+    const atPark = here && (!center || distM(here, center) < 6000);
+    const start = atPark ? here : center;
+    const paceM = Number.isFinite(pace) ? Math.min(140, Math.max(40, pace)) : DEFAULT_PACE;
+    const plan = planDay(rides, { startMin, endMin, walkMin, events: cleanEvents, start, pace: paceM });
+    plan.startedFrom = atPark ? 'you' : center ? 'park' : 'unknown';
+    // For comparison: how far you'd walk visiting the same rides in shortest-wait order.
+    if (plan.mode === 'proximity') {
+      const byWait = [...rides].sort((a, b) => (a.currentWait ?? 30) - (b.currentWait ?? 30));
+      plan.naiveWalkM = Math.round(pathLength(byWait, start));
+    }
+    res.json(plan);
   }));
 
   return app;

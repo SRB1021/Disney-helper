@@ -81,12 +81,12 @@
   </section>
 
   <section id="plan" hidden>
-    <p>Tick your must-do rides, then build a plan. It updates by itself when wait times change.</p>
+    <p>Tick your must-do rides, then build a plan. Stops are ordered by how close they are, so you don't zig-zag across the park, and the plan updates by itself when wait times change.</p>
     <div class="card">
       <div class="controls">
         <label>Start <input type="time" id="startTime" value="09:00"></label>
         <label>End <input type="time" id="endTime" value="21:00"></label>
-        <label>Walk (min) <input type="number" id="walk" value="10" min="0" max="30"></label>
+        <label>Walking pace <select id="pace"><option value="60">Slow</option><option value="80" selected>Normal</option><option value="100">Fast</option></select></label>
       </div>
       <div class="controls">
         <label><input type="checkbox" id="meal"> 🍽️ Meal break</label>

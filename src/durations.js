@@ -35,4 +35,11 @@ function rideDuration(name) {
   return hit ? hit[1] : DEFAULT_MIN;
 }
 
-module.exports = { rideDuration, DEFAULT_MIN };
+// The table's value, or null when the ride isn't in the table (so callers can tell a guess from a default).
+function knownDuration(name) {
+  const n = String(name || '').toLowerCase().replace(/[’‘]/g, "'");
+  const hit = TABLE.find(([re]) => re.test(n));
+  return hit ? hit[1] : null;
+}
+
+module.exports = { rideDuration, knownDuration, DEFAULT_MIN };

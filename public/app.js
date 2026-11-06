@@ -234,7 +234,7 @@ function suggest() {
   let best = null;
   for (const r of cands) {
     const walk = state.me ? Math.round(distM(state.me, r) / WALK_M_PER_MIN) : 0;
-    const total = r.standby + walk;
+    const total = state.me ? walk * 3 + r.standby * 0.5 : r.standby;   // closeness matters most once we know where you are
     if (!best || total < best.total) best = { ride: r, walk, total };
   }
   return best;
@@ -271,7 +271,8 @@ function renderMap() {
     const pts = [...(state.me ? [state.me] : []), ...stops.map((s) => s.ride)].map((p) => ({ lat: p.lat, lng: p.lng }));
     L.polyline(pts.map((p) => [p.lat, p.lng]), { color: '#5b3fd6', weight: 4, opacity: .85 }).addTo(state.layer);
     let meters = 0; for (let i = 1; i < pts.length; i++) meters += distM(pts[i - 1], pts[i]);
-    rec = `🗺️ <b>Your plan: ${stops.length} stop${stops.length > 1 ? 's' : ''}</b> · about ${(meters / 1609).toFixed(1)} mi of walking (straight-line). Next: <b>${esc(next.ride.name)}</b> (${fmtMin(next.startMin)}).`;
+    const saved = state.plan.naiveWalkM != null ? state.plan.naiveWalkM - state.plan.totalWalkM : 0;
+    rec = `🗺️ <b>Your plan: ${stops.length} stop${stops.length > 1 ? 's' : ''}</b>, ordered by what's closest · about ${(meters / 1609).toFixed(1)} mi of walking (straight-line)${saved > 150 ? `, <b>${(saved / 1609).toFixed(1)} mi less</b> than going by shortest wait` : ''}. Next: <b>${esc(next.ride.name)}</b> (${fmtMin(next.startMin)}).`;
   } else if (best) {
     if (state.me) L.polyline([[state.me.lat, state.me.lng], [best.ride.lat, best.ride.lng]], { color: '#5b3fd6', dashArray: '6 8' }).addTo(state.layer);
     rec = `⭐ <b>Go to ${esc(best.ride.name)}</b> — ${best.ride.standby} min wait${state.me ? `, about ${best.walk} min walk` : ''}.${state.me ? '' : ' <span class="muted">Tap “Show where I am” to include walking time. Build a plan to see your route here.</span>'}`;
@@ -402,13 +403,17 @@ async function buildPlan({ silent = false } = {}) {
   try {
     if (!state.weather) await loadWeather({ rebuild: false });
     const plan = await j('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ parkId: state.parkId, mustDos, events, startMin: toMin($('#startTime').value), endMin: toMin($('#endTime').value), walkMin: Number($('#walk').value) }) });
+      body: JSON.stringify({ parkId: state.parkId, mustDos, events, startMin: toMin($('#startTime').value), endMin: toMin($('#endTime').value), pace: Number($('#pace').value), from: state.me }) });
     state.plan = plan;
-    $('#planNote').textContent = 'Plan updated ' + new Date().toLocaleTimeString() + ' — it refreshes automatically when wait times change. See your route on the Map tab.';
+    const saved = plan.naiveWalkM != null ? plan.naiveWalkM - plan.totalWalkM : 0;
+    $('#planNote').innerHTML = `Plan updated ${new Date().toLocaleTimeString()} — refreshes automatically. See the route on the Map tab.`
+      + (plan.mode === 'proximity' ? `<br>🚶 Total walking about <b>${(plan.totalWalkM / 1609).toFixed(1)} mi</b> (~${plan.totalWalkMin} min)`
+        + (saved > 150 ? ` — about ${(saved / 1609).toFixed(1)} mi less than going by shortest wait` : '')
+        + `. Starting from ${plan.startedFrom === 'you' ? 'where you are' : 'the middle of the park (turn on location on the Map tab to start from where you are)'}.` : '');
     let n = 0;
     out.innerHTML = plan.steps.map((s) => s.kind === 'event'
       ? `<li class="evt"><span class="num">📌</span><div><b>${esc(s.name)}</b> — ${fmtMin(s.startMin)}–${fmtMin(s.endMin)}${s.late ? ' <span class="muted">(you may arrive late)</span>' : ''}</div></li>`
-      : `<li><span class="num">${++n}</span><div><b>${esc(s.name)}</b><br>${s.usesLightningLane
+      : `<li><span class="num">${++n}</span><div><b>${esc(s.name)}</b>${s.walkMin ? ` <span class="muted">· 🚶 ${s.walkMin} min walk (${Math.round(s.walkM * 3.281)} ft)</span>` : ''}<br>${s.usesLightningLane
         ? `⚡ <b>With Lightning Lane:</b> arrive ${fmtMin(s.arriveMin)}, ~${s.waitMin} min wait + ride ~${s.rideMin} min, done ${fmtMin(s.endMin)}.<br><span class="muted"><b>Without Lightning Lane:</b> ~${s.altWaitMin} min wait, done ${fmtMin(s.altEndMin)}.</span>`
         : `arrive ${fmtMin(s.arriveMin)}, wait ~${s.waitMin} min + ride ~${s.rideMin} min, done ${fmtMin(s.endMin)}`}${rainAt(s.arriveMin) ? ' ☔' : ''}</div></li>`).join('')
       + (plan.skipped.length ? `<li class="muted">Won't fit before close: ${plan.skipped.map((id) => esc(state.rides.find((r) => r.id === id)?.name)).join(', ')}</li>` : '');
@@ -450,7 +455,7 @@ $('#search').addEventListener('input', (e) => { state.q = e.target.value; render
 $('#sort').addEventListener('change', renderRides);
 $('#locate').addEventListener('click', locate);
 $('#build').addEventListener('click', () => buildPlan());
-for (const id of ['#startTime', '#endTime', '#walk', '#meal', '#mealTime', '#mealLen']) $(id).addEventListener('change', () => { if (planBuilt) buildPlan({ silent: true }); });
+for (const id of ['#startTime', '#endTime', '#pace', '#meal', '#mealTime', '#mealLen']) $(id).addEventListener('change', () => { if (planBuilt) buildPlan({ silent: true }); });
 
 (async function init() {
   try {

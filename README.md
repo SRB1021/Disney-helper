@@ -6,7 +6,7 @@ Node + Express, SQLite (`node:sqlite`), no build step. Data: [ThemeParks.wiki](h
 ## Features
 Live waits with gray unavailable rides, favorites, search/filters and wait alerts · crowd level and park hours ·
 typical-wait-by-hour chart (fills in as history is collected) · map with your location, a suggested next ride and your
-plan's route · day planner with meal break and pinned shows · shows tab · 3-day weather with rain tips ·
+plan's route · day planner that orders stops by walking distance (exact shortest route for up to 12 rides) with meal break and pinned shows · shows tab · 3-day weather with rain tips ·
 quick park chooser (tap, or press 1-6).
 
 ## Run
