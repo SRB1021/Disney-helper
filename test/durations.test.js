@@ -17,3 +17,12 @@ test('planner uses each ride\'s own length', () => {
   assert.equal(s.rideMin, 20);
   assert.equal(s.endMin, 570); // 10 wait + 20 ride
 });
+
+test('values checked against Wikipedia', () => {
+  assert.equal(rideDuration("Walt Disney's Enchanted Tiki Room"), 16);
+  assert.equal(rideDuration('The American Adventure'), 29);
+  assert.equal(rideDuration('Impressions de France'), 18);
+  assert.equal(rideDuration('Living with the Land'), 15);
+  assert.equal(rideDuration('Guardians of the Galaxy: Cosmic Rewind'), 3);
+  assert.equal(rideDuration('Toy Story Mania!'), 6);
+});

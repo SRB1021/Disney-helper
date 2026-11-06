@@ -1,4 +1,7 @@
-// Approximate ride lengths in minutes (from public ride info; ThemeParks.wiki doesn't provide them).
+// Approximate ride lengths in minutes. ThemeParks.wiki doesn't provide them, so these come from public ride
+// info; entries for the Tiki Room, Toy Story Mania, American Adventure, Impressions de France, Living with the
+// Land and Cosmic Rewind were checked against Wikipedia infobox durations (Wikipedia was ignored where its
+// page described another park's version, e.g. Disneyland's Pirates or Shanghai's Tron).
 // First matching pattern wins. Unknown rides fall back to DEFAULT_MIN.
 const DEFAULT_MIN = 5;
 
@@ -9,18 +12,18 @@ const TABLE = [
   [/peter pan/, 3], [/small world/, 11], [/dumbo/, 2], [/mad tea/, 2], [/barnstormer/, 1],
   [/winnie the pooh/, 4], [/under the sea|little mermaid/, 6], [/buzz lightyear/, 5], [/astro orbiter/, 2],
   [/carousel of progress/, 22], [/peoplemover/, 10], [/country bear/, 16], [/magic carpets/, 2],
-  [/regal carrousel/, 2], [/tron/, 2], [/tiki room/, 15], [/hall of presidents/, 25], [/riverboat/, 17],
+  [/regal carrousel/, 2], [/tron/, 2], [/tiki room/, 16], [/hall of presidents/, 25], [/riverboat/, 17],
   [/railroad/, 20], [/laugh floor/, 15], [/treehouse/, 15], [/philharmagic/, 12], [/tom sawyer/, 10],
   [/many adventures/, 4],
   // Hollywood Studios
   [/rise of the resistance/, 18], [/slinky dog/, 3], [/runaway railway/, 9], [/tower of terror/, 5],
-  [/rock .?n.? roller/, 3], [/smugglers run/, 5], [/toy story mania/, 7], [/star tours/, 5],
+  [/rock .?n.? roller/, 3], [/smugglers run/, 5], [/toy story mania/, 6], [/star tours/, 5],
   [/swirling saucers/, 2], [/muppet/, 17], [/frozen sing/, 30], [/beauty and the beast/, 30],
   // EPCOT
-  [/cosmic rewind/, 4], [/test track/, 5], [/frozen ever after/, 5], [/ratatouille/, 5], [/soarin/, 5],
-  [/spaceship earth/, 15], [/mission: ?space/, 5], [/living with the land/, 14], [/gran fiesta/, 9],
+  [/cosmic rewind/, 3], [/test track/, 5], [/frozen ever after/, 5], [/ratatouille/, 5], [/soarin/, 5],
+  [/spaceship earth/, 15], [/mission: ?space/, 5], [/living with the land/, 15], [/gran fiesta/, 9],
   [/imagination/, 7], [/seas with nemo/, 5], [/turtle talk/, 14], [/journey of water/, 15],
-  [/canada far and wide|reflections of china|american adventure/, 18],
+  [/american adventure/, 29], [/impressions de france/, 18], [/canada far and wide|reflections of china/, 18],
   // Animal Kingdom
   [/flight of passage/, 6], [/na.?vi river/, 5], [/expedition everest/, 4], [/kilimanjaro/, 20],
   [/dinosaur/, 4], [/kali river/, 5], [/triceratop/, 2], [/lion king/, 30], [/finding nemo/, 40],
