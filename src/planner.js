@@ -61,7 +61,7 @@ function planDay(rides, { startMin = 540, endMin = 1260, walkMin = 10, events = 
     if (pick.end > endMin) { skipped.push(pick.ride.id); continue; }
     steps.push({
       kind: 'ride', rideId: pick.ride.id, name: pick.ride.name, usesLightningLane: pick.ll,
-      arriveMin: pick.arrive, waitMin: pick.wait, startMin: pick.start, endMin: pick.end,
+      arriveMin: pick.arrive, waitMin: pick.wait, rideMin: pick.ride.durationMin ?? 5, startMin: pick.start, endMin: pick.end,
     });
     t = pick.end;
     first = false;

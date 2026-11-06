@@ -27,6 +27,9 @@ function isoToMin(iso) {
 const dayOf = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: NY }).format(new Date(d));
 const nowMin = () => isoToMin(new Date().toISOString());
 const isOpen = (r) => r.status === 'OPERATING';
+const isDown = (r) => r.status === 'DOWN';           // temporarily down, may reopen
+const rideClass = (r) => (isOpen(r) ? '' : isDown(r) ? ' down' : ' unavailable');
+const openRank = (r) => (isOpen(r) ? 0 : isDown(r) ? 1 : 2);
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
@@ -83,28 +86,33 @@ function renderRides() {
       default: return true;
     }
   });
-  const byOpen = (a, b) => isOpen(b) - isOpen(a);
+  const byOpen = (a, b) => openRank(a) - openRank(b);
   rides.sort((a, b) => byOpen(a, b) || (sort === 'name' ? a.name.localeCompare(b.name)
     : sort === 'wait-desc' ? (b.standby ?? -1) - (a.standby ?? -1) : (a.standby ?? 999) - (b.standby ?? 999)));
   $('#rides').innerHTML = rides.map((r) => `
-    <li class="ride${isOpen(r) ? '' : ' unavailable'}" data-id="${r.id}">
+    <li class="ride${rideClass(r)}" data-id="${r.id}">
       <button class="icon" data-fav="${r.id}" aria-label="Favorite" title="Favorite">${favs.has(r.id) ? '★' : '☆'}</button>
-      <div class="name">${esc(r.name)}<div class="ll">${isOpen(r) ? esc(llText(r)) : esc(r.status)}</div></div>
+      <div class="name">${esc(r.name)}<div class="ll">${isOpen(r) ? esc(llText(r)) : isDown(r) ? 'Temporarily down — may reopen' : esc(r.status)}</div></div>
       ${r.trend ? `<span class="trend ${r.trend > 0 ? 'up' : 'down'}">${r.trend > 0 ? '▲' : '▼'}${Math.abs(r.trend)}</span>` : ''}
-      ${isOpen(r) ? `<button class="icon bell${alerts[r.id] != null ? ' on' : ''}" data-bell="${r.id}" aria-label="Wait alert" title="${alerts[r.id] != null ? `Alert at ≤ ${alerts[r.id]} min (tap to cancel)` : 'Alert me when the wait drops'}">🔔</button>` : ''}
-      <span class="badge ${isOpen(r) ? cls(r.standby) : 'off'}">${isOpen(r) && r.standby != null ? r.standby + ' min' : '—'}</span>
+      ${isOpen(r) || isDown(r) ? `<button class="icon bell${alerts[r.id] != null ? ' on' : ''}" data-bell="${r.id}" aria-label="Alert" title="${alerts[r.id] === 'reopen' ? 'Will tell you when it reopens (tap to cancel)' : alerts[r.id] != null ? `Alert at ≤ ${alerts[r.id]} min (tap to cancel)` : isDown(r) ? 'Tell me when it reopens' : 'Alert me when the wait drops'}">🔔</button>` : ''}
+      <span class="badge ${isOpen(r) ? cls(r.standby) : isDown(r) ? 'down' : 'off'}">${isOpen(r) && r.standby != null ? r.standby + ' min' : isDown(r) ? 'Down' : '—'}</span>
     </li>`).join('') || '<li class="muted">No rides to show.</li>';
 }
 
 function renderPicks() {
   $('#picks').innerHTML = state.rides.map((r) => `
-    <li class="ride${isOpen(r) ? '' : ' unavailable'}"><label class="name"><input type="checkbox" data-id="${r.id}" ${picks.has(r.id) ? 'checked' : ''} ${isOpen(r) ? '' : 'disabled'}> ${esc(r.name)}${isOpen(r) ? '' : ' (' + esc(r.status.toLowerCase()) + ')'}</label></li>`).join('');
+    <li class="ride${rideClass(r)}"><label class="name"><input type="checkbox" data-id="${r.id}" ${picks.has(r.id) ? 'checked' : ''} ${isOpen(r) ? '' : 'disabled'}> ${esc(r.name)}${isOpen(r) ? '' : isDown(r) ? ' (down — may reopen)' : ' (' + esc(r.status.toLowerCase()) + ')'}</label></li>`).join('');
 }
 
 // ---------- ride alerts ----------
 function toggleBell(id) {
   const ride = state.rides.find((r) => r.id === id);
   if (alerts[id] != null) { delete alerts[id]; store.set('alerts', alerts); renderRides(); return; }
+  if (ride && isDown(ride)) {
+    alerts[id] = 'reopen'; store.set('alerts', alerts);
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+    toast(`🔔 I'll tell you when ${ride.name} reopens.`); renderRides(); return;
+  }
   const dflt = Math.max(5, Math.round(((ride?.standby ?? 30) - 10) / 5) * 5);
   const v = Number(window.prompt(`Alert me when ${ride?.name || 'this ride'} drops to this many minutes or less:`, String(dflt)));
   if (!Number.isFinite(v) || v < 0) return;
@@ -115,6 +123,16 @@ function toggleBell(id) {
 function checkAlerts() {
   for (const r of state.rides) {
     const thr = alerts[r.id];
+    if (thr === 'reopen') {                       // down ride: notify once it's operating again
+      if (isOpen(r)) {
+        delete alerts[r.id]; store.set('alerts', alerts);
+        const msg = `${r.name} has reopened!`;
+        toast('🔔 ' + msg);
+        if ('Notification' in window && Notification.permission === 'granted') new Notification('Disney Helper', { body: msg });
+        renderRides();
+      }
+      continue;
+    }
     if (thr == null || !isOpen(r) || r.standby == null) continue;
     if (r.standby <= thr) {
       if (!alertFired[r.id]) {
@@ -210,7 +228,7 @@ function suggest() {
   }
   return best;
 }
-const pin = (r) => L.divIcon({ className: '', iconSize: [26, 26], html: `<div class="pin ${isOpen(r) ? cls(r.standby) : 'off'}">${isOpen(r) && r.standby != null ? r.standby : ''}</div>` });
+const pin = (r) => L.divIcon({ className: '', iconSize: [26, 26], html: `<div class="pin ${isOpen(r) ? cls(r.standby) : isDown(r) ? 'down' : 'off'}">${isOpen(r) && r.standby != null ? r.standby : isDown(r) ? '!' : ''}</div>` });
 
 function renderMap() {
   if (!window.L || $('#map').hidden) return;
@@ -234,7 +252,7 @@ function renderMap() {
     if (stepNum[r.id]) { icon = L.divIcon({ className: '', iconSize: [30, 30], html: `<div class="pin step">${stepNum[r.id]}</div>` }); z = 900; }
     if (r.id === starId && !stepNum[r.id]) { icon = L.divIcon({ className: '', iconSize: [34, 34], html: '<div class="pin star">⭐</div>' }); z = 1000; }
     L.marker([r.lat, r.lng], { icon, zIndexOffset: z }).addTo(state.layer)
-      .bindPopup(`<b>${esc(r.name)}</b><br>${isOpen(r) ? (r.standby != null ? r.standby + ' min wait' : 'Open') : esc(r.status)}${stepNum[r.id] ? `<br>Plan stop #${stepNum[r.id]}` : ''}`);
+      .bindPopup(`<b>${esc(r.name)}</b><br>${isOpen(r) ? (r.standby != null ? r.standby + ' min wait' : 'Open') : isDown(r) ? 'Temporarily down — may reopen' : esc(r.status)}${stepNum[r.id] ? `<br>Plan stop #${stepNum[r.id]}` : ''}`);
   }
 
   let rec;
@@ -379,7 +397,7 @@ async function buildPlan({ silent = false } = {}) {
     let n = 0;
     out.innerHTML = plan.steps.map((s) => s.kind === 'event'
       ? `<li class="evt"><span class="num">📌</span><div><b>${esc(s.name)}</b> — ${fmtMin(s.startMin)}–${fmtMin(s.endMin)}${s.late ? ' <span class="muted">(you may arrive late)</span>' : ''}</div></li>`
-      : `<li><span class="num">${++n}</span><div><b>${esc(s.name)}</b> — arrive ${fmtMin(s.arriveMin)}, ${s.usesLightningLane ? '⚡ Lightning Lane' : `wait ~${s.waitMin} min`}, done ${fmtMin(s.endMin)}${rainAt(s.arriveMin) ? ' ☔' : ''}</div></li>`).join('')
+      : `<li><span class="num">${++n}</span><div><b>${esc(s.name)}</b> — arrive ${fmtMin(s.arriveMin)}, ${s.usesLightningLane ? '⚡ Lightning Lane' : `wait ~${s.waitMin} min`} + ride ~${s.rideMin} min, done ${fmtMin(s.endMin)}${rainAt(s.arriveMin) ? ' ☔' : ''}</div></li>`).join('')
       + (plan.skipped.length ? `<li class="muted">Won't fit before close: ${plan.skipped.map((id) => esc(state.rides.find((r) => r.id === id)?.name)).join(', ')}</li>` : '');
     renderMap();
   } catch (e) { out.innerHTML = `<li class="error">${esc(e.message)}</li>`; }

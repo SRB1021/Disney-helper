@@ -5,6 +5,7 @@ const { openDb } = require('./src/db');
 const { startPoller, localParts } = require('./src/poller');
 const { typicalByHour, bestHour, crowdFrom } = require('./src/predict');
 const weather = require('./src/weather');
+const { rideDuration } = require('./src/durations');
 const { planDay } = require('./src/planner');
 
 function createApp({ db, api, weatherApi = weather }) {
@@ -83,7 +84,7 @@ function createApp({ db, api, weatherApi = weather }) {
       const { hours } = typicalByHour(db.samplesByHour(r.id), localParts(Date.now()).dow);
       const ll = r.llSingle?.state === 'AVAILABLE' ? r.llSingle : r.llMulti?.state === 'AVAILABLE' ? r.llMulti : null;
       return {
-        id: r.id, name: r.name, currentWait: r.standby,
+        id: r.id, name: r.name, currentWait: r.standby, durationMin: rideDuration(r.name),
         predicted: Object.fromEntries(Object.entries(hours).map(([h, v]) => [h, v.median])),
         llStart: ll?.start ? isoToLocalMinutes(ll.start) : undefined,
       };

@@ -61,16 +61,18 @@ input[type=search] { flex:1 1 180px; } input[type=number] { width:70px; }
 .good { background:var(--good); } .mid { background:var(--mid); } .bad { background:var(--bad); } .off { background:var(--muted); }
 .ll { font-size:.78rem; color:var(--muted); font-weight:400; }
 .trend.up { color:var(--bad); } .trend.down { color:var(--good); }
+.ride.down { background:#ffe2bd; color:#7a4300; box-shadow:none; }
+.ride.down .badge, .badge.down { background:#e8870e; } .ride.down .ll { color:#8a4b00; }
 .ride.unavailable { background:#d9d9e0; color:#7a7a88; box-shadow:none; }
 .ride.unavailable .badge { background:#9a9aa8; } .ride.unavailable .ll { color:#7a7a88; }
-@media (prefers-color-scheme: dark) { .ride.unavailable { background:#34344a; color:#8d8da6; } .ride.unavailable .badge { background:#55556e; } }
+@media (prefers-color-scheme: dark) { .ride.down { background:#4a3513; color:#f5c98a; } .ride.down .ll { color:#f5c98a; } .ride.unavailable { background:#34344a; color:#8d8da6; } .ride.unavailable .badge { background:#55556e; } }
 
 /* Map */
 #mapEl { height:min(60vh,480px); min-height:320px; border-radius:14px; overflow:hidden; background:var(--card); }
 .rec { background:var(--card); border-left:6px solid var(--accent); padding:12px; border-radius:10px; margin:10px 0; }
 .legend { margin-top:8px; }
 .pin { border-radius:50%; border:2px solid #fff; box-shadow:0 0 3px rgba(0,0,0,.5); color:#fff; font:700 11px/22px system-ui; text-align:center; width:26px; height:26px; }
-.pin.good { background:var(--good); } .pin.mid { background:var(--mid); } .pin.bad { background:var(--bad); } .pin.off { background:#9a9aa8; }
+.pin.good { background:var(--good); } .pin.mid { background:var(--mid); } .pin.bad { background:var(--bad); } .pin.off { background:#9a9aa8; } .pin.down { background:#e8870e; }
 .pin.star { background:var(--accent); width:34px; height:34px; line-height:30px; font-size:16px; }
 .pin.step { background:var(--accent); width:30px; height:30px; line-height:26px; font-size:14px; border-color:var(--gold); }
 .you { width:16px; height:16px; background:#1f6fff; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 2px #1f6fff55; }
