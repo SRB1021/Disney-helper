@@ -3,24 +3,53 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#3b2a9a">
 <title>Disney Helper</title>
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <h1>🏰 Disney Helper</h1>
-  <p class="sub">Live wait times, Lightning Lane, and a plan for your day at Walt Disney World</p>
+<header class="hero">
+  <svg class="castle" viewBox="0 0 200 90" aria-hidden="true">
+    <g fill="currentColor">
+      <rect x="20" y="50" width="160" height="40"/>
+      <rect x="30" y="32" width="14" height="22"/><polygon points="28,32 37,12 46,32"/>
+      <rect x="156" y="32" width="14" height="22"/><polygon points="154,32 163,12 172,32"/>
+      <rect x="86" y="22" width="28" height="32"/><polygon points="82,22 100,0 118,22"/>
+      <rect x="60" y="40" width="12" height="14"/><polygon points="58,40 66,24 74,40"/>
+      <rect x="128" y="40" width="12" height="14"/><polygon points="126,40 134,24 142,40"/>
+    </g>
+    <circle cx="100" cy="68" r="9" fill="#fff" opacity=".25"/>
+  </svg>
+  <div>
+    <h1>Disney Helper</h1>
+    <p class="sub">Live waits · Lightning Lane · map · plan · shows · weather</p>
+  </div>
 </header>
-<nav id="parks" aria-label="Parks"></nav>
-<nav class="tabs">
-  <button data-view="live" class="on">Live waits</button>
-  <button data-view="map">Map</button>
-  <button data-view="plan">Day planner</button>
-</nav>
+
+<div class="sticky">
+  <div id="parkbar" class="parkbar" aria-label="Choose a park"></div>
+  <nav class="tabs" id="tabs" aria-label="Sections">
+    <button data-view="live" class="on">⏱️ Live</button>
+    <button data-view="map">🗺️ Map</button>
+    <button data-view="plan">📋 Plan</button>
+    <button data-view="shows">🎭 Shows</button>
+    <button data-view="weather">⛅ Weather</button>
+  </nav>
+</div>
+
 <main>
+  <div id="error" class="error" hidden></div>
+
   <section id="live">
+    <div id="summary" class="summary"></div>
+    <div class="card" id="forecastCard">
+      <h3>Typical wait by hour today</h3>
+      <canvas id="fcanvas" height="120"></canvas>
+      <p id="fnote" class="muted"></p>
+    </div>
     <div class="controls">
+      <input id="search" type="search" placeholder="Search rides…" aria-label="Search rides">
       <label>Sort
         <select id="sort">
           <option value="wait-asc">Shortest wait</option>
@@ -28,12 +57,19 @@
           <option value="name">Name</option>
         </select>
       </label>
-      <label><input type="checkbox" id="openOnly"> Open rides only</label>
-      <span id="updated" class="muted"></span>
     </div>
-    <div id="error" class="error" hidden></div>
+    <div class="chips" id="chips">
+      <button data-f="all" class="on">All</button>
+      <button data-f="fav">★ Favorites</button>
+      <button data-f="ll">⚡ Lightning Lane</button>
+      <button data-f="short">≤ 30 min</button>
+      <button data-f="open">Open only</button>
+    </div>
+    <p id="updated" class="muted"></p>
     <ul id="rides" class="rides"></ul>
+    <p class="muted tip">★ saves a favorite · 🔔 alerts you when a wait drops (works while this page is open, for the park you're viewing).</p>
   </section>
+
   <section id="map" hidden>
     <div id="rec" class="rec">Finding your best next ride…</div>
     <div class="controls">
@@ -41,30 +77,50 @@
       <span id="locMsg" class="muted"></span>
     </div>
     <div id="mapEl"></div>
-    <p class="muted legend">Green/orange/red = wait time · gray = not available · ⭐ = suggested next ride · blue dot = you</p>
+    <p class="muted legend">Green/orange/red = wait · gray = not available · ⭐ = next stop · numbered purple = your plan in order (straight lines, not walking paths) · blue dot = you</p>
   </section>
+
   <section id="plan" hidden>
-    <p>Tick your must-do rides, then build a plan.</p>
-    <div class="controls">
-      <label>Start <input type="time" id="startTime" value="09:00"></label>
-      <label>End <input type="time" id="endTime" value="21:00"></label>
-      <label>Walk (min) <input type="number" id="walk" value="10" min="0" max="30"></label>
+    <p>Tick your must-do rides, then build a plan. It updates by itself when wait times change.</p>
+    <div class="card">
+      <div class="controls">
+        <label>Start <input type="time" id="startTime" value="09:00"></label>
+        <label>End <input type="time" id="endTime" value="21:00"></label>
+        <label>Walk (min) <input type="number" id="walk" value="10" min="0" max="30"></label>
+      </div>
+      <div class="controls">
+        <label><input type="checkbox" id="meal"> 🍽️ Meal break</label>
+        <label>at <input type="time" id="mealTime" value="12:30"></label>
+        <label>for <input type="number" id="mealLen" value="45" min="10" max="120"> min</label>
+      </div>
+      <p id="pinned" class="muted"></p>
     </div>
     <ul id="picks" class="rides"></ul>
     <button id="build" class="primary">Build my plan</button>
     <p id="planNote" class="muted"></p>
-    <ol id="timeline" class="timeline"></ol>
+    <ul id="timeline" class="timeline"></ul>
+  </section>
+
+  <section id="shows" hidden>
+    <p class="muted">Tap a time to pin it. Pinned shows are scheduled into your plan.</p>
+    <ul id="showList" class="rides"></ul>
+  </section>
+
+  <section id="weather" hidden>
+    <div id="weatherBody" class="muted">Loading forecast…</div>
   </section>
 </main>
+
+<div id="toast" class="toast" role="status" hidden></div>
 <dialog id="detail">
   <form method="dialog"><button class="close" aria-label="Close">✕</button></form>
   <h2 id="dName"></h2>
   <p id="dInfo" class="muted"></p>
   <canvas id="chart" height="200"></canvas>
 </dialog>
-<footer>Data from <a href="https://themeparks.wiki">ThemeParks.wiki</a>. Not affiliated with Disney.</footer>
-<script src="/vendor/chartjs/chart.umd.js"></script>
+<footer>Ride data from <a href="https://themeparks.wiki">ThemeParks.wiki</a> · weather from <a href="https://open-meteo.com">Open-Meteo</a> · map © OpenStreetMap. Not affiliated with Disney.</footer>
 <script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/vendor/chartjs/chart.umd.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

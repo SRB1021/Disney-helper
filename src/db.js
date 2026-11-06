@@ -38,6 +38,10 @@ function openDb(file = process.env.DB_PATH || './data/history.db') {
       return db.prepare(`SELECT dow, hour, standby FROM snapshots
         WHERE ride_id = ? AND standby IS NOT NULL`).all(rideId);
     },
+    samplesByPark(parkId) {
+      return db.prepare(`SELECT dow, hour, standby FROM snapshots
+        WHERE park_id = ? AND standby IS NOT NULL`).all(parkId);
+    },
     count() { return db.prepare('SELECT COUNT(*) AS n FROM snapshots').get().n; },
     close() { db.close(); },
   };

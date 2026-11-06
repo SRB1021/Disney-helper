@@ -38,4 +38,14 @@ function predictAt(hours, hour) {
   return hours[hour]?.median ?? null;
 }
 
-module.exports = { median, typicalByHour, bestHour, predictAt };
+// How busy is the park right now? Average standby wait of open rides.
+function crowdFrom(rides) {
+  const waits = rides.filter((r) => r.status === 'OPERATING' && r.standby != null).map((r) => r.standby);
+  if (!waits.length) return null;
+  const avg = Math.round(waits.reduce((a, b) => a + b, 0) / waits.length);
+  const [key, label, emoji] = avg < 20 ? ['low', 'Low', '🟢'] : avg < 35 ? ['moderate', 'Moderate', '🟡']
+    : avg < 50 ? ['high', 'High', '🟠'] : ['veryhigh', 'Very high', '🔴'];
+  return { key, label, emoji, avg, rides: waits.length };
+}
+
+module.exports = { median, typicalByHour, bestHour, predictAt, crowdFrom };

@@ -3,10 +3,11 @@ const express = require('express');
 const api = require('./src/themeparks');
 const { openDb } = require('./src/db');
 const { startPoller, localParts } = require('./src/poller');
-const { typicalByHour, bestHour } = require('./src/predict');
+const { typicalByHour, bestHour, crowdFrom } = require('./src/predict');
+const weather = require('./src/weather');
 const { planDay } = require('./src/planner');
 
-function createApp({ db, api }) {
+function createApp({ db, api, weatherApi = weather }) {
   const app = express();
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
@@ -31,6 +32,29 @@ function createApp({ db, api }) {
     res.json(rides);
   }));
 
+  // Today's hours + how busy the park is right now.
+  app.get('/api/parks/:id/summary', wrap(async (req, res) => {
+    const [hours, rides] = await Promise.all([
+      api.getParkHours(req.params.id).catch(() => null),
+      api.getLive(req.params.id),
+    ]);
+    res.json({ hours, crowd: crowdFrom(rides) });
+  }));
+
+  app.get('/api/parks/:id/shows', wrap(async (req, res) => res.json(await api.getShows(req.params.id))));
+
+  // Typical wait by hour across the whole park (needs a few days of history).
+  app.get('/api/parks/:id/forecast', (req, res) => {
+    const typical = typicalByHour(db.samplesByPark(req.params.id), localParts(Date.now()).dow);
+    res.json({ ...typical, ready: Object.keys(typical.hours).length >= 4 }); // need several different hours
+  });
+
+  app.get('/api/parks/:id/weather', wrap(async (req, res) => {
+    const { center } = await api.getLocations(req.params.id);
+    if (!center) return res.status(404).json({ error: 'No location for this park' });
+    res.json(await weatherApi.getWeather(center.lat, center.lng));
+  }));
+
   app.get('/api/parks/:id/center', wrap(async (req, res) => {
     const { center } = await api.getLocations(req.params.id);
     res.json(center);
@@ -44,11 +68,13 @@ function createApp({ db, api }) {
   app.get('/api/rides/:id/predict', (req, res) => {
     const { dow } = localParts(Date.now());
     const typical = typicalByHour(db.samplesByHour(req.params.id), dow);
-    res.json({ ...typical, best: bestHour(typical.hours), ready: Object.keys(typical.hours).length > 0 });
+    res.json({ ...typical, best: bestHour(typical.hours), ready: Object.keys(typical.hours).length >= 3 });
   });
 
   app.post('/api/plan', wrap(async (req, res) => {
-    const { parkId, mustDos = [], startMin, endMin, walkMin } = req.body || {};
+    const { parkId, mustDos = [], startMin, endMin, walkMin, events = [] } = req.body || {};
+    const cleanEvents = (Array.isArray(events) ? events : []).filter((e) => e && Number.isFinite(e.startMin) && Number.isFinite(e.durMin) && e.durMin > 0)
+      .slice(0, 20).map((e) => ({ name: String(e.name || 'Event').slice(0, 80), startMin: e.startMin, durMin: e.durMin }));
     if (!parkId || !Array.isArray(mustDos) || !mustDos.length) {
       return res.status(400).json({ error: 'parkId and a non-empty mustDos[] are required' });
     }
@@ -62,7 +88,7 @@ function createApp({ db, api }) {
         llStart: ll?.start ? isoToLocalMinutes(ll.start) : undefined,
       };
     });
-    res.json(planDay(rides, { startMin, endMin, walkMin }));
+    res.json(planDay(rides, { startMin, endMin, walkMin, events: cleanEvents }));
   }));
 
   return app;

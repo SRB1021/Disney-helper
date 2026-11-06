@@ -1,5 +1,6 @@
 // Client for the free ThemeParks.wiki API (https://api.themeparks.wiki/docs).
 // NOTE: written against the documented response shape; verify against live data.
+const { fetchRetry } = require('./http');
 const BASE = 'https://api.themeparks.wiki/v1';
 const TTL_MS = 60_000;
 const cache = new Map();
@@ -7,7 +8,7 @@ const cache = new Map();
 async function getJson(path, ttl = TTL_MS) {
   const hit = cache.get(path);
   if (hit && Date.now() - hit.at < ttl) return hit.data;
-  const res = await fetch(BASE + path, { headers: { 'user-agent': 'disney-helper/0.1' } });
+  const res = await fetchRetry(BASE + path, { headers: { 'user-agent': 'disney-helper/0.1' } });
   if (!res.ok) throw new Error(`ThemeParks.wiki ${path} -> ${res.status}`);
   const data = await res.json();
   cache.set(path, { at: Date.now(), data });
@@ -70,4 +71,33 @@ async function getSchedule(parkId) {
   return data.schedule || [];
 }
 
-module.exports = { getParks, getLive, getLocations, getSchedule, normalize };
+const TZ = 'America/New_York';
+const ymd = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d);
+
+// Shows / entertainment with their showtimes (from the same cached /live call).
+async function getShows(parkId) {
+  const data = await getJson(`/entity/${parkId}/live`);
+  return (data.liveData || [])
+    .filter((e) => e.entityType === 'SHOW' && (e.showtimes || []).length)
+    .map((e) => ({
+      id: e.id, name: e.name, status: e.status,
+      times: e.showtimes.map((t) => ({ type: t.type, start: t.startTime, end: t.endTime })),
+    }));
+}
+
+// Today's opening hours, early entry and Lightning Lane Multi Pass price.
+async function getParkHours(parkId) {
+  const sched = await getSchedule(parkId);
+  const today = ymd();
+  const op = sched.find((x) => x.date === today && x.type === 'OPERATING');
+  if (!op) return null;
+  const early = sched.find((x) => x.date === today && x.type === 'TICKETED_EVENT' && /early entry/i.test(x.description || ''));
+  const multi = (op.purchases || []).find((x) => x.type === 'PACKAGE' && /multi pass/i.test(x.name));
+  return {
+    date: today, open: op.openingTime, close: op.closingTime,
+    earlyEntry: early ? { open: early.openingTime, close: early.closingTime } : null,
+    multiPass: multi ? { price: multi.price?.amount != null ? multi.price.amount / 100 : null, available: !!multi.available } : null,
+  };
+}
+
+module.exports = { getParks, getLive, getLocations, getSchedule, getShows, getParkHours, normalize };

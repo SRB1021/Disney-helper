@@ -24,3 +24,13 @@ test('falls back to all days when weekday is sparse', () => {
   for (const d of [0, 1, 2]) for (const h of [9, 12, 15]) s.push({ dow: d, hour: h, standby: h });
   assert.equal(typicalByHour(s, 5).basis, 'all-days');
 });
+
+test('crowdFrom averages open rides and picks a level', () => {
+  const { crowdFrom } = require('../src/predict');
+  const rides = [{ status: 'OPERATING', standby: 10 }, { status: 'OPERATING', standby: 50 }, { status: 'CLOSED', standby: null }, { status: 'DOWN', standby: 90 }];
+  const c = crowdFrom(rides);
+  assert.equal(c.avg, 30);
+  assert.equal(c.label, 'Moderate');
+  assert.equal(c.rides, 2);
+  assert.equal(crowdFrom([{ status: 'CLOSED', standby: null }]), null);
+});

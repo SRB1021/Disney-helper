@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/predict.test.js test/planner.test.js"
+    "test": "node --test test/predict.test.js test/planner.test.js test/weather.test.js"
   },
   "dependencies": {
     "chart.js": "^4.4.1",
