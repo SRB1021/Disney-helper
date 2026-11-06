@@ -71,3 +71,14 @@ test('far-off Lightning Lane rides are ordered by window and show the window tim
   assert.equal(plan.steps[0].arriveMin, 1210);
   assert.equal(plan.steps[0].usesLightningLane, true);
 });
+
+test('Lightning Lane steps also report the standby alternative', () => {
+  const rides = [{ id: 'a', name: 'A', currentWait: 45, llStart: 560, durationMin: 5 }];
+  const s = planDay(rides, { startMin: 540 }).steps[0];
+  assert.equal(s.usesLightningLane, true);
+  assert.equal(s.waitMin, 5);
+  assert.equal(s.altWaitMin, 45);
+  assert.equal(s.altEndMin, 540 + 45 + 5);
+  const plain = planDay([{ id: 'b', name: 'B', currentWait: 10 }], { startMin: 540 }).steps[0];
+  assert.equal(plain.altWaitMin, undefined);
+});

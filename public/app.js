@@ -65,11 +65,22 @@ function renderParkBar() {
 }
 
 // ---------- live list ----------
+// Lightning Lane vs. standby, in plain words.
 function llText(r) {
+  const opts = [];
+  if (r.llMulti?.state === 'AVAILABLE' && r.llMulti.start) opts.push({ start: r.llMulti.start, label: 'Multi Pass' });
+  if (r.llSingle?.state === 'AVAILABLE' && r.llSingle.start) opts.push({ start: r.llSingle.start, label: `Single Pass${r.llSingle.price != null ? ' $' + r.llSingle.price : ''}` });
+  if (opts.length) {
+    opts.sort((a, b) => new Date(a.start) - new Date(b.start));
+    const o = opts[0];
+    const w = r.standby;
+    const saves = w != null && w > 5 ? ` — saves about ${w - 5} min` : '';
+    return `⚡ With Lightning Lane (${o.label}): come back at ${fmtTime(o.start)}, ~5 min wait${saves}.`
+      + (w != null ? ` Without Lightning Lane: ~${w} min wait.` : '');
+  }
   const parts = [];
-  if (r.llMulti) parts.push(r.llMulti.state === 'AVAILABLE' ? `LL return ${fmtTime(r.llMulti.start)}` : 'LL finished');
-  if (r.llSingle) parts.push(r.llSingle.state === 'AVAILABLE'
-    ? `LL Single Pass ${r.llSingle.price != null ? '$' + r.llSingle.price : ''} · ${fmtTime(r.llSingle.start)}` : 'Single Pass sold out');
+  if (r.llMulti?.state === 'FINISHED') parts.push('Lightning Lane finished for today');
+  if (r.llSingle?.state === 'FINISHED') parts.push('Single Pass sold out');
   return parts.join(' · ');
 }
 const hasLL = (r) => r.llMulti?.state === 'AVAILABLE' || r.llSingle?.state === 'AVAILABLE';
@@ -397,7 +408,9 @@ async function buildPlan({ silent = false } = {}) {
     let n = 0;
     out.innerHTML = plan.steps.map((s) => s.kind === 'event'
       ? `<li class="evt"><span class="num">📌</span><div><b>${esc(s.name)}</b> — ${fmtMin(s.startMin)}–${fmtMin(s.endMin)}${s.late ? ' <span class="muted">(you may arrive late)</span>' : ''}</div></li>`
-      : `<li><span class="num">${++n}</span><div><b>${esc(s.name)}</b> — arrive ${fmtMin(s.arriveMin)}, ${s.usesLightningLane ? '⚡ Lightning Lane' : `wait ~${s.waitMin} min`} + ride ~${s.rideMin} min, done ${fmtMin(s.endMin)}${rainAt(s.arriveMin) ? ' ☔' : ''}</div></li>`).join('')
+      : `<li><span class="num">${++n}</span><div><b>${esc(s.name)}</b><br>${s.usesLightningLane
+        ? `⚡ <b>With Lightning Lane:</b> arrive ${fmtMin(s.arriveMin)}, ~${s.waitMin} min wait + ride ~${s.rideMin} min, done ${fmtMin(s.endMin)}.<br><span class="muted"><b>Without Lightning Lane:</b> ~${s.altWaitMin} min wait, done ${fmtMin(s.altEndMin)}.</span>`
+        : `arrive ${fmtMin(s.arriveMin)}, wait ~${s.waitMin} min + ride ~${s.rideMin} min, done ${fmtMin(s.endMin)}`}${rainAt(s.arriveMin) ? ' ☔' : ''}</div></li>`).join('')
       + (plan.skipped.length ? `<li class="muted">Won't fit before close: ${plan.skipped.map((id) => esc(state.rides.find((r) => r.id === id)?.name)).join(', ')}</li>` : '');
     renderMap();
   } catch (e) { out.innerHTML = `<li class="error">${esc(e.message)}</li>`; }

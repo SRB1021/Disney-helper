@@ -53,7 +53,10 @@ function planDay(rides, { startMin = 540, endMin = 1260, walkMin = 10, events = 
       const cost = deferred ? 1e6 + start : ll ? idle * 0.5 + wait : end - t;
       // For a far-off window, you come back at the window start (don't show an early "arrive").
       const shownArrive = ll && idle > MAX_IDLE_FOR_LL ? start : arrive;
-      if (!pick || cost < pick.cost) pick = { ride: r, ll, arrive: shownArrive, start, wait, end, cost };
+      // What the same ride would cost in the standby line, arriving right now-ish.
+      const altWait = waitAt(r, arrive);
+      const altEnd = arrive + altWait + (r.durationMin ?? 5);
+      if (!pick || cost < pick.cost) pick = { ride: r, ll, arrive: shownArrive, start, wait, end, cost, altWait, altEnd };
     }
     if (!pick) { doEvent(pending.shift()); continue; } // nothing fits before the event: go to it
 
@@ -62,6 +65,7 @@ function planDay(rides, { startMin = 540, endMin = 1260, walkMin = 10, events = 
     steps.push({
       kind: 'ride', rideId: pick.ride.id, name: pick.ride.name, usesLightningLane: pick.ll,
       arriveMin: pick.arrive, waitMin: pick.wait, rideMin: pick.ride.durationMin ?? 5, startMin: pick.start, endMin: pick.end,
+      ...(pick.ll ? { altWaitMin: pick.altWait, altEndMin: pick.altEnd } : {}),
     });
     t = pick.end;
     first = false;
