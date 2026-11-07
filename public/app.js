@@ -223,7 +223,7 @@ async function loadForecast() {
 function selectPark(id) {
   if (!state.parks.some((p) => p.id === id)) return;
   state.parkId = id; state.fitted = null; state.plan = null; state.weather = null; state.rides = []; state.shows = [];
-  planBuilt = false; $('#timeline').innerHTML = ''; $('#planNote').textContent = '';
+  planBuilt = false; removedNames.clear(); $('#timeline').innerHTML = ''; $('#planNote').textContent = '';
   store.set('park', id);
   document.querySelectorAll('#parkbar button').forEach((b) => b.classList.toggle('on', b.dataset.id === id));
   $('#rides').innerHTML = '<li class="muted">Loading…</li>';
@@ -403,11 +403,35 @@ async function showDetail(id) {
 }
 
 // ---------- planner ----------
+// Closed rides drop out of the plan by themselves; rides that are only down are skipped until they reopen.
+const removedNames = new Set();
+function pruneClosedPicks() {
+  const removed = [], paused = [];
+  for (const id of [...picks]) {
+    const r = state.rides.find((x) => x.id === id);
+    if (!r || isOpen(r)) continue;                  // not in this park's list (or fine): leave it alone
+    if (isDown(r)) paused.push(r.name);
+    else { picks.delete(id); removed.push(r.name); removedNames.add(r.name); }
+  }
+  if (removed.length) {
+    store.set('mustDos', [...picks]); renderPicks();
+    toast(`🗑️ Removed from your plan (closed): ${removed.join(', ')}`);
+  }
+  return paused;
+}
+const warnHtml = (paused) => (removedNames.size ? `<br>🗑️ Removed because they closed: ${[...removedNames].map(esc).join(', ')}` : '')
+  + (paused.length ? `<br>🟠 Skipped for now (down, may reopen): ${paused.map(esc).join(', ')} — they'll be added back if they reopen.` : '');
+
 async function buildPlan({ silent = false } = {}) {
-  const mustDos = [...picks];
+  const paused = pruneClosedPicks();
+  const mustDos = [...picks].filter((id) => { const r = state.rides.find((x) => x.id === id); return r && isOpen(r); });
   const out = $('#timeline');
   planBuilt = true;
-  if (!mustDos.length) { out.innerHTML = silent ? '' : '<li>Pick at least one ride first.</li>'; state.plan = null; renderMap(); return; }
+  if (!mustDos.length) {
+    out.innerHTML = silent && !(removedNames.size || paused.length) ? '' : `<li>${picks.size ? 'None of your picked rides are open right now.' : 'Pick at least one open ride first.'}</li>`;
+    $('#planNote').innerHTML = warnHtml(paused).replace(/^<br>/, '');
+    state.plan = null; renderMap(); return;
+  }
   const events = todaysPins().map((p) => ({ name: '🎭 ' + p.name, startMin: isoToMin(p.start), durMin: p.durMin }));
   if ($('#meal').checked) events.push({ name: '🍽️ Meal break', startMin: toMin($('#mealTime').value), durMin: Number($('#mealLen').value) || 45 });
   try {
@@ -419,7 +443,8 @@ async function buildPlan({ silent = false } = {}) {
     $('#planNote').innerHTML = `Plan updated ${new Date().toLocaleTimeString()} — refreshes automatically. See the route on the Map tab.`
       + (plan.mode === 'proximity' ? `<br>🚶 Total walking about <b>${(plan.totalWalkM / 1609).toFixed(1)} mi</b> (~${plan.totalWalkMin} min)`
         + (saved > 150 ? ` — about ${(saved / 1609).toFixed(1)} mi less than going by shortest wait` : '')
-        + `. Starting from ${plan.startedFrom === 'you' ? 'where you are' : 'the middle of the park (turn on location on the Map tab to start from where you are)'}.` : '');
+        + `. Starting from ${plan.startedFrom === 'you' ? 'where you are' : 'the middle of the park (turn on location on the Map tab to start from where you are)'}.` : '')
+      + warnHtml(paused);
     let n = 0;
     out.innerHTML = plan.steps.map((s) => s.kind === 'event'
       ? `<li class="evt"><span class="num">📌</span><div><b>${esc(s.name)}</b> — ${fmtMin(s.startMin)}–${fmtMin(s.endMin)}${s.late ? ' <span class="muted">(you may arrive late)</span>' : ''}</div></li>`

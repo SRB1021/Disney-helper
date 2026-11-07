@@ -54,3 +54,23 @@ test('the plan API uses a ride length the user set, and falls back to the table'
     assert.equal((await post({ r1: 'abc' })).steps[0].rideMin, 9);
   } finally { srv.close(); db.close(); }
 });
+
+test('plan API leaves closed and down rides out and reports them', async () => {
+  const { createApp } = require('../server');
+  const { openDb } = require('../src/db');
+  const mk = (id, name, status) => ({ id, name, status, standby: status === 'OPERATING' ? 10 : null, lat: 28.42, lng: -81.58, llMulti: null, llSingle: null });
+  const rides = [mk('a', 'Open Ride', 'OPERATING'), mk('b', 'Closed Ride', 'CLOSED'), mk('c', 'Down Ride', 'DOWN')];
+  const api = { getLive: async () => rides, getLocations: async () => ({ center: { lat: 28.42, lng: -81.58 } }) };
+  const db = openDb(':memory:');
+  const srv = createApp({ db, api }).listen(0);
+  try {
+    const call = async (mustDos) => (await fetch(`http://127.0.0.1:${srv.address().port}/api/plan`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ parkId: 'p', mustDos, startMin: 540, endMin: 1260 }),
+    })).json();
+    const plan = await call(['a', 'b', 'c']);
+    assert.deepEqual(plan.steps.map((s) => s.rideId), ['a']);
+    assert.deepEqual(plan.unavailable.map((u) => [u.id, u.status]), [['b', 'CLOSED'], ['c', 'DOWN']]);
+    const none = await call(['b']);
+    assert.equal(none.steps.length, 0);
+  } finally { srv.close(); db.close(); }
+});

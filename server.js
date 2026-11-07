@@ -82,7 +82,10 @@ function createApp({ db, api, weatherApi = weather }) {
       return res.status(400).json({ error: 'parkId and a non-empty mustDos[] are required' });
     }
     const live = await api.getLive(parkId);
-    const rides = mustDos.map((id) => live.find((r) => r.id === id)).filter(Boolean).map((r) => {
+    const found = mustDos.map((id) => live.find((r) => r.id === id)).filter(Boolean);
+    // Only open rides can be planned; closed/down ones are reported back instead of scheduled.
+    const unavailable = found.filter((r) => r.status !== 'OPERATING').map((r) => ({ id: r.id, name: r.name, status: r.status }));
+    const rides = found.filter((r) => r.status === 'OPERATING').map((r) => {
       const { hours } = typicalByHour(db.samplesByHour(r.id), localParts(Date.now()).dow);
       const ll = r.llSingle?.state === 'AVAILABLE' ? r.llSingle : r.llMulti?.state === 'AVAILABLE' ? r.llMulti : null;
       return {
@@ -99,6 +102,7 @@ function createApp({ db, api, weatherApi = weather }) {
     const paceM = Number.isFinite(pace) ? Math.min(140, Math.max(40, pace)) : DEFAULT_PACE;
     const plan = planDay(rides, { startMin, endMin, walkMin, events: cleanEvents, start, pace: paceM });
     plan.startedFrom = atPark ? 'you' : center ? 'park' : 'unknown';
+    plan.unavailable = unavailable;
     // For comparison: how far you'd walk visiting the same rides in shortest-wait order.
     if (plan.mode === 'proximity') {
       const byWait = [...rides].sort((a, b) => (a.currentWait ?? 30) - (b.currentWait ?? 30));
