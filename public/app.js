@@ -44,6 +44,7 @@ const state = {
 };
 const picks = new Set(store.get('mustDos', []));
 const favs = new Set(store.get('favs', []));
+const rideMins = store.get('rideMins', {});   // rideId -> ride length the user set (minutes)
 const alerts = store.get('alerts', {});      // rideId -> wait threshold (minutes)
 const alertFired = {};                       // rideId -> already notified?
 let showPicks = store.get('showPicks', []);  // [{id, name, start, durMin}]
@@ -110,9 +111,17 @@ function renderRides() {
     </li>`).join('') || '<li class="muted">No rides to show.</li>';
 }
 
+// Ride length: the user's own number if set, else our table. `source` says how much to trust it.
+const SRC_LABEL = { checked: '✔ checked', estimate: 'estimate', default: 'guess', yours: 'yours' };
+const rideLen = (r) => rideMins[r.id] != null ? { min: rideMins[r.id], source: 'yours' } : { min: r.rideMin ?? 5, source: r.rideMinSource || 'default' };
+
 function renderPicks() {
-  $('#picks').innerHTML = state.rides.map((r) => `
-    <li class="ride${rideClass(r)}"><label class="name"><input type="checkbox" data-id="${r.id}" ${picks.has(r.id) ? 'checked' : ''} ${isOpen(r) ? '' : 'disabled'}> ${esc(r.name)}${isOpen(r) ? '' : isDown(r) ? ' (down — may reopen)' : ' (' + esc(r.status.toLowerCase()) + ')'}</label></li>`).join('');
+  $('#picks').innerHTML = state.rides.map((r) => {
+    const len = rideLen(r);
+    return `
+    <li class="ride${rideClass(r)}"><label class="name"><input type="checkbox" data-id="${r.id}" ${picks.has(r.id) ? 'checked' : ''} ${isOpen(r) ? '' : 'disabled'}> ${esc(r.name)}${isOpen(r) ? '' : isDown(r) ? ' (down — may reopen)' : ' (' + esc(r.status.toLowerCase()) + ')'}</label>
+      ${isOpen(r) ? `<span class="dur" title="How long the ride itself lasts. Change it if you know better.">⏱ <input type="number" min="1" max="120" data-dur="${r.id}" value="${len.min}" aria-label="Ride length in minutes"> min <i class="src src-${len.source}">${SRC_LABEL[len.source]}</i></span>` : ''}</li>`;
+  }).join('');
 }
 
 // ---------- ride alerts ----------
@@ -381,9 +390,10 @@ async function showDetail(id) {
   $('#detail').showModal();
   const [hist, pred] = await Promise.all([j(`/api/rides/${id}/history?hours=24`), j(`/api/rides/${id}/predict`)]);
   const labels = hist.map((h) => new Date(h.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
-  $('#dInfo').textContent = pred.ready && pred.best
+  const len = rideLen(ride);
+  $('#dInfo').textContent = `Ride length ~${len.min} min (${SRC_LABEL[len.source]}). ` + (pred.ready && pred.best
     ? `Typically shortest around ${fmtMin(pred.best.hour * 60)} (~${pred.best.median} min).`
-    : 'Still collecting history — predictions appear after a few days of data.';
+    : 'Still collecting history — predictions appear after a few days of data.');
   state.chart?.destroy();
   state.chart = new Chart($('#chart'), {
     type: 'line',
@@ -403,7 +413,7 @@ async function buildPlan({ silent = false } = {}) {
   try {
     if (!state.weather) await loadWeather({ rebuild: false });
     const plan = await j('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ parkId: state.parkId, mustDos, events, startMin: toMin($('#startTime').value), endMin: toMin($('#endTime').value), pace: Number($('#pace').value), from: state.me }) });
+      body: JSON.stringify({ parkId: state.parkId, mustDos, events, durations: rideMins, startMin: toMin($('#startTime').value), endMin: toMin($('#endTime').value), pace: Number($('#pace').value), from: state.me }) });
     state.plan = plan;
     const saved = plan.naiveWalkM != null ? plan.naiveWalkM - plan.totalWalkM : 0;
     $('#planNote').innerHTML = `Plan updated ${new Date().toLocaleTimeString()} — refreshes automatically. See the route on the Map tab.`
@@ -447,6 +457,15 @@ document.addEventListener('keydown', (e) => {
   if (n >= 1 && n <= state.parks.length) selectPark(state.parks[n - 1].id);   // 1-6 jump between parks
 });
 $('#picks').addEventListener('change', (e) => {
+  if (e.target.dataset.dur != null) {              // ride-length box
+    const id = e.target.dataset.dur, v = Math.round(Number(e.target.value));
+    const ride = state.rides.find((r) => r.id === id);
+    // Out-of-range input, or going back to the table value, clears the override.
+    if (!Number.isFinite(v) || v < 1 || v > 120 || v === ride?.rideMin) delete rideMins[id]; else rideMins[id] = v;
+    store.set('rideMins', rideMins); renderPicks();
+    if (planBuilt) buildPlan({ silent: true });
+    return;
+  }
   e.target.checked ? picks.add(e.target.dataset.id) : picks.delete(e.target.dataset.id);
   store.set('mustDos', [...picks]);
   if (planBuilt) buildPlan({ silent: true });

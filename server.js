@@ -5,7 +5,7 @@ const { openDb } = require('./src/db');
 const { startPoller, localParts } = require('./src/poller');
 const { typicalByHour, bestHour, crowdFrom } = require('./src/predict');
 const weather = require('./src/weather');
-const { rideDuration } = require('./src/durations');
+const { rideInfo } = require('./src/durations');
 const { planDay, distM, pathLength, DEFAULT_PACE } = require('./src/planner');
 
 function createApp({ db, api, weatherApi = weather }) {
@@ -27,6 +27,8 @@ function createApp({ db, api, weatherApi = weather }) {
     const rides = await api.getLive(req.params.id);
     const since = Date.now() - 35 * 60_000;
     for (const r of rides) {
+      const info = rideInfo(r.name);
+      r.rideMin = info.minutes; r.rideMinSource = info.source;      // how long the ride itself lasts
       const past = db.history(r.id, since)[0];
       r.trend = past && past.standby != null && r.standby != null ? r.standby - past.standby : null;
     }
@@ -73,7 +75,7 @@ function createApp({ db, api, weatherApi = weather }) {
   });
 
   app.post('/api/plan', wrap(async (req, res) => {
-    const { parkId, mustDos = [], startMin, endMin, walkMin, events = [], from, pace } = req.body || {};
+    const { parkId, mustDos = [], startMin, endMin, walkMin, events = [], from, pace, durations = {} } = req.body || {};
     const cleanEvents = (Array.isArray(events) ? events : []).filter((e) => e && Number.isFinite(e.startMin) && Number.isFinite(e.durMin) && e.durMin > 0)
       .slice(0, 20).map((e) => ({ name: String(e.name || 'Event').slice(0, 80), startMin: e.startMin, durMin: e.durMin }));
     if (!parkId || !Array.isArray(mustDos) || !mustDos.length) {
@@ -84,7 +86,7 @@ function createApp({ db, api, weatherApi = weather }) {
       const { hours } = typicalByHour(db.samplesByHour(r.id), localParts(Date.now()).dow);
       const ll = r.llSingle?.state === 'AVAILABLE' ? r.llSingle : r.llMulti?.state === 'AVAILABLE' ? r.llMulti : null;
       return {
-        id: r.id, name: r.name, currentWait: r.standby, durationMin: rideDuration(r.name), lat: r.lat, lng: r.lng,
+        id: r.id, name: r.name, currentWait: r.standby, durationMin: rideMinutes(r, durations), lat: r.lat, lng: r.lng,
         predicted: Object.fromEntries(Object.entries(hours).map(([h, v]) => [h, v.median])),
         llStart: ll?.start ? isoToLocalMinutes(ll.start) : undefined,
       };
@@ -106,6 +108,12 @@ function createApp({ db, api, weatherApi = weather }) {
   }));
 
   return app;
+}
+
+// Ride length: the user's own number if they set one (1-120 min), else our table.
+function rideMinutes(ride, overrides) {
+  const v = Number(overrides?.[ride.id]);
+  return Number.isFinite(v) && v >= 1 && v <= 120 ? Math.round(v) : rideInfo(ride.name).minutes;
 }
 
 function isoToLocalMinutes(iso) {

@@ -78,6 +78,11 @@ input[type=search] { flex:1 1 180px; } input[type=number] { width:70px; }
 .you { width:16px; height:16px; background:#1f6fff; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 2px #1f6fff55; }
 
 /* Plan */
+.dur { font-size:.82rem; color:var(--muted); white-space:nowrap; }
+.dur input { width:54px; padding:3px 5px; }
+.src { font-style:normal; font-size:.72rem; padding:1px 6px; border-radius:8px; background:var(--line); }
+.src-checked { background:#d6f5e3; color:#0f6b3c; } .src-yours { background:#e3dcff; color:#4527b8; }
+.src-default { background:#ffe2bd; color:#7a4300; }
 .timeline li { background:var(--card); padding:10px 12px; border-radius:12px; display:flex; gap:10px; align-items:flex-start; }
 .timeline .num { flex:none; width:26px; height:26px; line-height:26px; text-align:center; border-radius:50%; background:var(--accent); color:#fff; font-weight:700; font-size:.85rem; }
 .timeline li.evt { border-left:5px solid var(--gold); } .timeline li.evt .num { background:var(--gold); color:#3b2a00; }

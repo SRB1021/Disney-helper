@@ -26,3 +26,31 @@ test('values checked against Wikipedia', () => {
   assert.equal(rideDuration('Guardians of the Galaxy: Cosmic Rewind'), 3);
   assert.equal(rideDuration('Toy Story Mania!'), 6);
 });
+
+test('rideInfo labels where each number comes from', () => {
+  const { rideInfo } = require('../src/durations');
+  assert.deepEqual(rideInfo('Seven Dwarfs Mine Train'), { minutes: 3, source: 'checked' });
+  assert.deepEqual(rideInfo('Haunted Mansion'), { minutes: 9, source: 'estimate' });
+  assert.deepEqual(rideInfo('Totally Unknown Ride'), { minutes: 5, source: 'default' });
+  assert.equal(rideInfo('Beauty and the Beast Sing-Along').minutes, 15);
+  assert.equal(rideInfo('Castaway Creek').minutes, 30);
+});
+
+test('the plan API uses a ride length the user set, and falls back to the table', async () => {
+  const { createApp } = require('../server');
+  const { openDb } = require('../src/db');
+  const ride = { id: 'r1', name: 'Haunted Mansion', status: 'OPERATING', standby: 10, lat: 28.42, lng: -81.58, llMulti: null, llSingle: null };
+  const api = { getLive: async () => [ride], getLocations: async () => ({ center: { lat: 28.42, lng: -81.58 } }) };
+  const db = openDb(':memory:');
+  const srv = createApp({ db, api }).listen(0);
+  try {
+    const post = async (durations) => (await fetch(`http://127.0.0.1:${srv.address().port}/api/plan`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ parkId: 'p', mustDos: ['r1'], startMin: 540, endMin: 1260, durations }),
+    })).json();
+    assert.equal((await post({})).steps[0].rideMin, 9);
+    assert.equal((await post({ r1: 20 })).steps[0].rideMin, 20);
+    assert.equal((await post({ r1: 9999 })).steps[0].rideMin, 9);      // out of range ignored
+    assert.equal((await post({ r1: 'abc' })).steps[0].rideMin, 9);
+  } finally { srv.close(); db.close(); }
+});
